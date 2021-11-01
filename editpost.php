@@ -141,6 +141,37 @@ if ($correctinvidualsetting) {
 $tags = oublog_get_tag_list($oublog, $curgroup, $childcm ? $childcm : $cm,
     $correctglobal ? $oublog->id : null, $curindividual);
 
+
+// custom fields default values
+$blogcattype_selected = false;
+$blogrecipients_selected = [];
+$blogdateupdater_value = false;
+
+$capviewcategoryandrecipients = has_capability(
+    'mod/oublog:viewcategoryandrecipients',
+    $context,
+    $USER->id
+);
+
+// is edit mode
+if ($postid) {
+    if ($oublog_cattype = get_oublog_category_type($postid)) {
+        $blogcattype_selected = $oublog_cattype->categoryid;
+    }
+
+    if ($oublog_recipients = get_oublog_recipient_list($postid)) {
+        $blogrecipients_selected_list = [];
+        foreach ($oublog_recipients as $oublog_recipients_item) {
+            $blogrecipients_selected_list[] = $oublog_recipients_item->recipientid;
+        }
+        $blogrecipients_selected = $blogrecipients_selected_list;
+    }
+
+    if ($oublog_posted_timestamp = get_oublog_posted_timestamp($postid)) {
+        $blogdateupdater_value = $oublog_posted_timestamp->timeposted;
+    }
+}
+
 $mform = new mod_oublog_post_form('editpost.php', array(
     'individual' => $correctinvidualsetting,
     'maxvisibility' => $childoublog ? $childoublog->maxvisibility : $oublog->maxvisibility,
@@ -153,7 +184,15 @@ $mform = new mod_oublog_post_form('editpost.php', array(
     'availtags' => $tags,
     'referurl' => $referurl,
     'cmid' => $cmid,
-    'tagslist' => $childoublog ? $childoublog->tagslist : $oublog->tagslist));
+    'tagslist' => $childoublog ? $childoublog->tagslist : $oublog->tagslist,
+
+    // custom fields data
+    'blogcattype_selected' => $blogcattype_selected,
+    'blogrecipients_selected' => $blogrecipients_selected,
+    'blogdateupdater_value' => $blogdateupdater_value,
+    'capviewcategoryandrecipients' => $capviewcategoryandrecipients,
+
+));
 if ($mform->is_cancelled()) {
     redirect($viewurl);
     exit;
@@ -230,12 +269,44 @@ if (!$frmpost = $mform->get_data()) {
 
         oublog_edit_post($post, $cm);
 
+        // blogcattype
+        if (isset($post->blogcattype)) {
+            if ($capviewcategoryandrecipients) {
+                set_oublog_category_type($post->id, $post->blogcattype);
+            }
+        }
+
+        $post->blogrecipients = [];
+        foreach ($post as $key => $value) {
+            $startswith = 'ourecipient-';
+            if (substr($key, 0, strlen($startswith)) === $startswith) {
+                if ($value === '1') {
+                    $recipientid = str_replace($startswith, '', $key);
+                    $post->blogrecipients[] = $recipientid;
+                }
+            }
+        }
+
+        // blogrecipients
+        if (isset($post->blogrecipients)) {
+            if ($capviewcategoryandrecipients) {
+                set_oublog_recipient_list($post->id, $post->blogrecipients);
+            }
+        }
+
+        // blogdateupdater
+        if (isset($post->blogdateupdater)) {
+            if ($capviewcategoryandrecipients) {
+                set_oublog_posted_timestamp($post->id, $post->blogdateupdater);
+            }
+        }
+
         // Log post edited event.
         $params = array(
-                'context' => $context,
-                'objectid' => $post->id,
-                'other' => array(
-                    'oublogid' => $oublog->id
+            'context' => $context,
+            'objectid' => $post->id,
+            'other' => array(
+                'oublogid' => $oublog->id
             )
         );
 
@@ -264,12 +335,53 @@ if (!$frmpost = $mform->get_data()) {
             print_error('notaddpost', 'oublog');
         }
 
+        // blogcattype
+        if (isset($post->blogcattype)) {
+            if ($capviewcategoryandrecipients) {
+                set_oublog_category_type($post->id, $post->blogcattype);
+            }
+        }
+
+        $post->blogrecipients = [];
+        foreach ($post as $key => $value) {
+            $startswith = 'ourecipient-';
+            if (substr($key, 0, strlen($startswith)) === $startswith) {
+                if ($value === '1') {
+                    $recipientid = str_replace($startswith, '', $key);
+                    $post->blogrecipients[] = $recipientid;
+                }
+            }
+        }
+
+        // blogrecipients
+        if (isset($post->blogrecipients)) {
+            if ($capviewcategoryandrecipients) {
+                set_oublog_recipient_list($post->id, $post->blogrecipients);
+            }
+        }
+
+        // blogdateupdater
+        if (isset($post->blogdateupdater)) {
+            if ($capviewcategoryandrecipients) {
+                set_oublog_posted_timestamp($post->id, $post->blogdateupdater);
+            }
+        }
+
+        // send notification about new blog post via email
+        if (isset($post->blogrecipients)) {
+            if ($capviewcategoryandrecipients) {
+                if (isset($post->sendemailnotification) && $post->sendemailnotification) {
+                    send_email_to_recipient_list($post->id, $post->blogrecipients);
+                }
+            }
+        }
+
         // Log add post event.
         $params = array(
-                'context' => $context,
-                'objectid' => $post->id,
-                'other' => array(
-                    'oublogid' => $oublog->id
+            'context' => $context,
+            'objectid' => $post->id,
+            'other' => array(
+                'oublogid' => $oublog->id
             )
         );
         $event = \mod_oublog\event\post_created::create($params);
