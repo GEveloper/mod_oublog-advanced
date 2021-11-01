@@ -5713,6 +5713,71 @@ class oublog_participation_timefilter_form extends moodleform {
                 $mform->setType($param, PARAM_INT);
             }
         }
+
+
+        // search text
+        $mform->addElement('text', 'searchtext', get_string('searchtext', 'oublog'), ['size' => '50']);
+        $mform->addHelpButton('searchtext', 'searchtext', 'oublog');
+        $mform->setType('searchtext', PARAM_TEXT);
+
+        if (isset($cdata['searchtext'])) {
+            $mform->setDefault('searchtext', $cdata['searchtext']);
+        }
+
+
+        // search tags1
+        $tags1_list = [
+            0 => ''
+        ];
+
+        $tags1 = get_oublog_tags_searchtag1();
+        foreach ($tags1 as $tag1) {
+            $tags1_list[$tag1->id] = $tag1->name;
+        }
+
+        $mform->addElement('select', 'searchtag1', get_string('searchtag1', 'oublog'), $tags1_list, ['style' => 'min-width: 500px;']);
+        $mform->addHelpButton('searchtag1', 'searchtag1', 'oublog');
+
+        if (isset($cdata['searchtag1'])) {
+            $mform->setDefault('searchtag1', $cdata['searchtag1']);
+        }
+
+
+        // search tags2
+        $tags2_list = [
+            0 => ''
+        ];
+
+        $tags2 = get_oublog_tags_searchtag2();
+        foreach ($tags2 as $tag2) {
+            $tags2_list[$tag2->id] = $tag2->name;
+        }
+
+        $mform->addElement('select', 'searchtag2', get_string('searchtag2', 'oublog'), $tags2_list, ['style' => 'min-width: 500px;']);
+        $mform->addHelpButton('searchtag2', 'searchtag2', 'oublog');
+
+        if (isset($cdata['searchtag2'])) {
+            $mform->setDefault('searchtag2', $cdata['searchtag2']);
+        }
+
+
+        // search recipient
+        $recipients_list = [
+            0 => ''
+        ];
+
+        $recipients = get_oublog_recipients();
+        foreach ($recipients as $recipient) {
+            $recipients_list[$recipient->id] = $recipient->name;
+        }
+
+        $mform->addElement('select', 'ourecipient', get_string('ourecipient', 'oublog'), $recipients_list, ['style' => 'min-width: 500px;']);
+        $mform->addHelpButton('ourecipient', 'ourecipient', 'oublog');
+
+        if (isset($cdata['ourecipient'])) {
+            $mform->setDefault('ourecipient', $cdata['ourecipient']);
+        }
+
         // Data selectors, with optional enabling checkboxes.
         $mform->addElement('date_selector', 'start',
                 get_string('start', 'oublog'), array('startyear' => gmdate("Y", $cdata['startyear']),
@@ -5739,7 +5804,7 @@ class oublog_participation_timefilter_form extends moodleform {
             $mform->addElement('hidden', 'group', $cdata['group']);
             $mform->setType('group', PARAM_INT);
         }
-        $this->add_action_buttons(false, get_string('timefilter_submit', 'oublog'));
+        $this->add_action_buttons(true, get_string('timefilter_submit', 'oublog'));
     }
 
     public function validation($data, $files) {
@@ -5751,6 +5816,580 @@ class oublog_participation_timefilter_form extends moodleform {
         }
         return $errors;
     }
+
+    public function add_action_buttons($cancel = true, $submitlabel = null) {
+        if (is_null($submitlabel)){
+            $submitlabel = get_string('savechanges');
+        }
+        $mform =& $this->_form;
+        if ($cancel) {
+            // when two elements we need a group
+            $buttonarray = array();
+            $buttonarray[] = &$mform->createElement('submit', 'submitbutton', $submitlabel);
+            $buttonarray[] = &$mform->createElement('cancel', 'cancel', get_string('timefilter_cancel', 'oublog'));
+            $mform->addGroup($buttonarray, 'buttonar', '', array(' '), false);
+            $mform->closeHeaderBefore('buttonar');
+        } else {
+            // no group needed
+            $mform->addElement('submit', 'submitbutton', $submitlabel);
+            $mform->closeHeaderBefore('submitbutton');
+        }
+    }
 }
 
 class oublog_export_portfolio_caller extends \mod_oublog\portfolio_caller {};
+
+function get_oublog_categories() {
+    global $DB;
+
+    $sql = "
+        SELECT
+            oc.*
+        FROM {oublog_categories} oc
+        ORDER BY oc.id ASC
+    ";
+
+    return $DB->get_records_sql($sql);
+}
+
+function get_oublog_category_type($post_id) {
+    global $DB;
+
+    $sql = "
+        SELECT
+            oci.*,
+            oc.name AS categoryname
+        FROM {oublog_category_instances} oci
+        JOIN {oublog_categories} oc ON oc.id = oci.categoryid
+        WHERE
+            oci.postid = ?
+        ORDER BY oci.id ASC
+        LIMIT 1
+    ";
+
+    return $DB->get_record_sql($sql, [
+        $post_id
+    ]);
+}
+
+function set_oublog_category_type($post_id, $category_id) {
+    global $DB;
+
+    $current_category = get_oublog_category_type($post_id);
+    if ($current_category) {
+        if ($current_category->categoryid !== $category_id) {
+            $update_category = new stdClass();
+            $update_category->id = $current_category->id;
+            $update_category->categoryid = $category_id;
+
+            return $DB->update_record('oublog_category_instances', $update_category);
+        }
+    }
+    else {
+        $set_category = new stdClass();
+        $set_category->postid = $post_id;
+        $set_category->categoryid = $category_id;
+
+        return $DB->insert_record('oublog_category_instances', $set_category);
+    }
+
+    return true;
+}
+
+function get_oublog_tags_searchtag1() {
+    global $DB;
+
+    $sql = "
+        SELECT
+            ot.id,
+            ot.sortindex,
+            ot.name
+        FROM {oublog_tags_searchtag1} ot
+        ORDER BY ot.sortindex ASC
+    ";
+
+    return $DB->get_records_sql($sql);
+}
+
+function get_oublog_tags_searchtag2() {
+    global $DB;
+
+    $sql = "
+        SELECT
+            ot.id,
+            ot.sortindex,
+            ot.name
+        FROM {oublog_tags_searchtag2} ot
+        ORDER BY ot.sortindex ASC
+    ";
+
+    return $DB->get_records_sql($sql);
+}
+
+function get_oublog_tags_searchtag1_refs($searchtag1_id) {
+    global $DB;
+
+    $sql = "
+        SELECT
+            t.id,
+            t.tag
+        FROM {oublog_tags_searchtag1_ref} tr1
+        JOIN {oublog_tags_searchtag1} t1 ON t1.id = tr1.searchtag1_id
+        JOIN {oublog_tags} t ON t.id = tr1.tags_id
+        WHERE
+            t1.id = ?
+    ";
+
+    return $DB->get_records_sql($sql, [
+        $searchtag1_id
+    ]);
+}
+
+function get_oublog_tags_searchtag2_refs($searchtag2_id) {
+    global $DB;
+
+    $sql = "
+        SELECT
+            t.id,
+            t.tag
+        FROM {oublog_tags_searchtag2_ref} tr2
+        JOIN {oublog_tags_searchtag2} t2 ON t2.id = tr2.searchtag2_id
+        JOIN {oublog_tags} t ON t.id = tr2.tags_id
+        WHERE
+            t2.id = ?
+    ";
+
+    return $DB->get_records_sql($sql, [
+        $searchtag2_id
+    ]);
+}
+
+function get_oublog_tags_list($post_id) {
+    global $DB;
+
+    $sql = "
+        SELECT
+            ot.id,
+            ot.tag
+        FROM {oublog_taginstances} oti
+        JOIN {oublog_tags} ot ON ot.id = oti.tagid
+        WHERE
+            oti.postid = ?
+        ORDER BY oti.id ASC
+    ";
+
+    return $DB->get_records_sql($sql, [
+        $post_id
+    ]);
+}
+
+function get_oublog_recipient_list($post_id) {
+    global $DB;
+
+    $sql = "
+        SELECT
+            ori.*,
+            ors.name AS recipientname
+        FROM {oublog_recipients_instances} ori
+        JOIN {oublog_recipients} ors ON ors.id = ori.recipientid
+        WHERE
+            ori.postid = ?
+        ORDER BY ori.id ASC
+    ";
+
+    return $DB->get_records_sql($sql, [
+        $post_id
+    ]);
+}
+
+function set_oublog_recipient_list($post_id, $recipient_list) {
+    global $DB;
+
+    $DB->delete_records('oublog_recipients_instances', ['postid' => $post_id]);
+
+    foreach ($recipient_list as $recipient_id) {
+        $insert_recipient = new stdClass();
+        $insert_recipient->postid = $post_id;
+        $insert_recipient->recipientid = $recipient_id;
+
+        $DB->insert_record('oublog_recipients_instances', $insert_recipient);
+    }
+
+    return true;
+}
+
+function get_oublog_recipients() {
+    global $DB;
+
+    $sql = "
+        SELECT
+            ors.id,
+            ors.sortindex,
+            ors.name,
+            ors.fullname
+        FROM {oublog_recipients} ors
+        ORDER BY ors.sortindex ASC
+    ";
+
+    return $DB->get_records_sql($sql);
+}
+
+function get_oublog_posted_timestamp($post_id) {
+    global $DB;
+
+    $sql = "
+        SELECT
+            op.id,
+            op.timeposted
+        FROM {oublog_posts} op
+        WHERE
+            op.id = ?
+        ORDER BY op.id ASC
+        LIMIT 1
+    ";
+
+    return $DB->get_record_sql($sql, [
+        $post_id
+    ]);
+}
+
+function set_oublog_posted_timestamp($post_id, $timestamp) {
+    global $DB;
+
+    $current_timestamp = get_oublog_posted_timestamp($post_id);
+    if ($current_timestamp && $current_timestamp->timeposted !== $timestamp) {
+        $update_posted_timestamp = new stdClass();
+        $update_posted_timestamp->id = $current_timestamp->id;
+        $update_posted_timestamp->timeposted = $timestamp;
+
+        return $DB->update_record('oublog_posts', $update_posted_timestamp);
+    }
+
+    return true;
+}
+
+
+
+
+function send_email_to_recipient_list($post_id, $recipient_list) {
+    return true;
+
+    global $DB;
+
+    if ($postdata = $DB->get_record('oublog_posts', array('id' => $post_id))) {
+        $fromuser = generate_email_user('noreply@bog.ge');
+        $to = generate_email_user('learningsupport@bog.ge', '');
+
+        // Prepare email template
+        $subject = format_string($postdata->title);
+
+        if (empty($subject)) {
+            $subject = 'საინფორმაციო წერილი';
+        }
+
+        $messagehtml = $postdata->message;
+        $messagetext = html_to_text($messagehtml);
+
+        // Send email
+        $result = email_to_user($to, $fromuser, $subject, $messagetext, $messagehtml, '', '', true, $fromuser->email);
+
+
+        // foreach ($recipient_list as $recipient_id) {
+
+            // get recipient name from 'oublog_recipients'
+            // split by ': ' // or write manual sql query
+            // search by part[0], part[1]
+            // get users email addresses
+            // if it's not default email address
+            // send email
+
+
+            // $user_profile_fields = profile_user_record($student->id);
+
+            // if (!isset($user_profile_fields->PositionName) || empty($user_profile_fields->PositionName)) {
+            //     $user_position = get_string('notspecified', 'report_boggeneral');
+            // } else {
+            //     $user_position = $user_profile_fields->PositionName;
+            // }
+
+            // if (!isset($student->department) || empty($student->department)) {
+            //     $user_department = get_string('notspecified', 'report_boggeneral');
+            // } else {
+            //     $user_department = $student->department;
+            // }
+
+        // }
+    }
+
+    return true;
+}
+
+
+/**
+ * Generate a user info object based on provided parameters.
+ *
+ * @param      string  $email  plain text email address.
+ * @param      string  $name   (optional) plain text real name.
+ * @param      int     $id     (optional) user ID
+ *
+ * @return     object  user info.
+ */
+function generate_email_user($email, $name = '', $id = -99) {
+    $emailuser = new stdClass;
+    $emailuser->email = trim(filter_var($email, FILTER_SANITIZE_EMAIL));
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $emailuser->email = '';
+    }
+
+    $name = format_text($name, FORMAT_HTML, ['trusted' => false, 'noclean' => false]);
+    $emailuser->firstname = trim(filter_var($name, FILTER_SANITIZE_STRING));
+    $emailuser->lastname = '';
+    $emailuser->maildisplay = true;
+    $emailuser->mailformat = 1; // 0 (zero) text-only emails, 1 (one) for HTML emails.
+    $emailuser->id = $id;
+    $emailuser->firstnamephonetic = '';
+    $emailuser->lastnamephonetic = '';
+    $emailuser->middlename = '';
+    $emailuser->alternatename = '';
+
+    return $emailuser;
+}
+
+
+/**
+ * This function should return summary info for all posts/comments for the specified blog
+ * (or against a blog instance if individual set), excluding those by current user,
+ * and based on parameters sent.
+ * If individual is set then only comments should be returned.
+ */
+function oublog_get_participation_details_filtered($oublog, $groupid, $individual,
+        $start = null, $end = null, $page = 0, $getposts = true,
+        $getcomments = true, $limitfrom = null, $limitnum = null, $masterblog = null
+        ,
+        // custom fields
+        $searchtext = '',
+        $searchtag1 = 0,
+        $searchtag2 = 0,
+        $oucattype = 0,
+        $outag = 0,
+        $ourecipient = 0
+    ) {
+    global $DB, $USER;
+    $gmgroup = $gminner = $groupcheck = $postvisibility = $postallowcomments = '';
+    $period = $cperiod = $limitcount = $thispostuser = $thiscommentuser = '';
+    $visibility = OUBLOG_VISIBILITY_COURSEUSER;
+    // Check master blog.
+    $participationoublog = !empty($masterblog) ? $masterblog : $oublog;
+    if ($oublog->allowcomments >= OUBLOG_COMMENTS_ALLOW) {
+        $allowcomments = OUBLOG_COMMENTS_ALLOW;
+    } else {
+        $allowcomments = OUBLOG_COMMENTS_PREVENT;
+    }
+    $postallowcomments = 'AND p.allowcomments >= ' . OUBLOG_COMMENTS_ALLOW;
+    // If selected a group in an individual blog (no user selected) -
+    // get group to filter results.
+    if (($oublog->individual != OUBLOG_NO_INDIVIDUAL_BLOGS) && isset($groupid) && $groupid > 0) {
+        $gminner = "INNER JOIN {groups_members} gm ON bi.userid = gm.userid";
+        $gmgroup = "gm.groupid AS gmgroup, ";
+        $groupcheck = " AND gm.groupid = :gmgroupid ";
+    } else {
+        $groupcheck = $groupid ? 'AND p.groupid = :pgroupid ' : '';
+    }
+    if ($start) {
+        $period = 'AND timeposted > :timestart ';
+    }
+    if ($end) {
+        $period .= 'AND timeposted < :timeend ';
+    }
+    if ($individual > 0 ) {
+        $thispostuser = 'AND u.id = :userid ';
+        $thiscommentuser = 'AND Ub.id = :userid ';
+    }
+    if ($oublog->global || ($oublog->maxvisibility == OUBLOG_VISIBILITY_PUBLIC
+            && !isloggedin())) {
+        // Only include visible posts on global blogs and public blogs when not logged in.
+        $postvisibility = 'AND p.visibility >= :visibility ';
+        if (!isloggedin()) {
+            $visibility = OUBLOG_VISIBILITY_PUBLIC;
+        } else {
+            $visibility = OUBLOG_VISIBILITY_LOGGEDINUSER;
+        }
+    }
+
+    $posterfields = user_picture::fields('u', null, 'posteridx');
+    $postssql = "SELECT p.id, p.title, p.timeposted, p.groupid, $gmgroup
+    p.allowcomments, p.visibility,
+    bi.userid, bi.name AS blogname, $posterfields
+    FROM {oublog_posts} p
+    INNER JOIN {oublog_instances} bi ON p.oubloginstancesid = bi.id
+    INNER JOIN {user} u ON bi.userid = u.id ". $gminner ."
+    WHERE p.deletedby IS NULL AND oublogid = :oublogid
+    AND p.timedeleted IS NULL " . $groupcheck . $period . $thispostuser .
+    $postvisibility;
+    $postssqlorder = ' ORDER BY p.timeposted DESC ';
+    if ($start) {
+        $cperiod = 'AND c.timeposted > :timestart ';
+    }
+    if ($end) {
+        $cperiod .= 'AND c.timeposted < :timeend ';
+    }
+    $commenterfields = user_picture::fields('Ua', null, 'commenteridx', 'commenter');
+    $posterfields = user_picture::fields('Ub', null, 'posteridx', 'poster');
+    $commentssql = "SELECT c.id, c.postid, c.title, c.timeposted, c.userid,
+    Ua.id AS commenterid, $commenterfields, Ub.id AS posterid, $posterfields,
+    p.title AS posttitle, p.timeposted AS postdate, p.allowcomments, p.visibility,
+    bi.oublogid, bi.name AS bloginstancename,
+    bi.userid AS postauthorid, $gmgroup p.groupid
+    FROM {oublog_comments} c
+    JOIN {oublog_posts} p ON (c.postid = p.id)
+    JOIN {oublog_instances} bi ON (bi.id = p.oubloginstancesid) ". $gminner ."
+    LEFT JOIN {user} Ua ON Ua.id = c.userid
+    LEFT JOIN {user} Ub ON Ub.id = bi.userid
+    WHERE bi.oublogid = :oublogid
+    AND p.timedeleted IS NULL AND c.timedeleted IS NULL " . $groupcheck .
+    $cperiod . $thiscommentuser .
+    $postvisibility . $postallowcomments ."
+    AND c.postid = p.id ";
+    $commentsqlorder = 'ORDER BY c.timeposted DESC ';
+
+    $params = array(
+            'oublogid' => $participationoublog->id,
+            'pgroupid' => $groupid,
+            'gmgroupid' => $groupid,
+            'timestart' => $start,
+            'timeend' => $end,
+            'userid' => $individual,
+            'visibility' => $visibility,
+            'allowcomments' => $allowcomments
+    );
+
+    $participation = new stdClass();
+    // $participation->postscount = $DB->get_field_sql("SELECT COUNT(1) FROM ($postssql) p", $params);
+    // if ($getposts) {
+    //     $participation->posts = $DB->get_records_sql($postssql . $postssqlorder, $params, $limitfrom, $limitnum);
+    // } else {
+    //     $participation->posts = array();
+    // }
+    $participation->commentscount = $DB->get_field_sql("SELECT COUNT(1) FROM ($commentssql) p", $params);
+    if ($getcomments) {
+        $participation->comments = $DB->get_records_sql($commentssql . $commentsqlorder, $params, $limitfrom, $limitnum);
+    } else {
+        $participation->comments = array();
+    }
+
+
+    // filtering
+
+
+    $participation_filtered = new stdClass;
+    $participation_filtered->postscount = 0;
+
+    if ($getposts) {
+        $participation->posts = $DB->get_records_sql($postssql . $postssqlorder, $params);
+    } else {
+        $participation->posts = array();
+    }
+
+    $participation_filtered->commentscount = $participation->commentscount;
+    $participation_filtered->comments = $participation->comments;
+
+    // filter by search fields
+    foreach ($participation->posts as $post) {
+
+        // searchtext
+        if ($searchtext) {
+            if ($postdata = $DB->get_record('oublog_posts', array('id' => $post->id))) {
+                if (mb_stripos($postdata->title, $searchtext) === false
+                 && mb_stripos($postdata->message, $searchtext) === false) {
+                    continue;
+                }
+            }
+        }
+
+        // searchtag
+        $tag_ids = [];
+        if ($outag || $searchtag1 || $searchtag2) {
+            if ($oublog_tags_list = get_oublog_tags_list($post->id)) {
+                foreach ($oublog_tags_list as $oublog_tag) {
+                    $tag_ids[] = $oublog_tag->id;
+                }
+            }
+        }
+
+        if ($searchtag1) {
+            $foundtag1 = false;
+            $searchtag1_refs = get_oublog_tags_searchtag1_refs($searchtag1);
+
+            foreach ($searchtag1_refs as $tags_ref) {
+                if (in_array($tags_ref->id, $tag_ids)) {
+                    $foundtag1 = true;
+                    break;
+                }
+            }
+
+            if (!$foundtag1) {
+                continue;
+            }
+        }
+
+        if ($searchtag2) {
+            $foundtag2 = false;
+            $searchtag2_refs = get_oublog_tags_searchtag2_refs($searchtag2);
+
+            foreach ($searchtag2_refs as $tags_ref) {
+                if (in_array($tags_ref->id, $tag_ids)) {
+                    $foundtag2 = true;
+                    break;
+                }
+            }
+
+            if (!$foundtag2) {
+                continue;
+            }
+        }
+
+        // cattype
+        if ($oucattype) {
+            if ($oublog_cattype = get_oublog_category_type($post->id)) {
+                if ($oucattype != $oublog_cattype->categoryid) {
+                    continue;
+                }
+            }
+        }
+
+        // tag
+        if ($outag) {
+            if (!in_array($outag, $tag_ids)) {
+                continue;
+            }
+        }
+
+        // recipient
+        if ($ourecipient) {
+            $recipient_ids = [];
+
+            if ($oublog_recipient_list = get_oublog_recipient_list($post->id)) {
+                foreach ($oublog_recipient_list as $oublog_recipient) {
+                    $recipient_ids[] = $oublog_recipient->recipientid;
+                }
+            }
+
+            if (!in_array($ourecipient, $recipient_ids)) {
+                continue;
+            }
+        }
+
+        // validated (or filters not provided), add to filtered list
+        $participation_filtered->posts[] = $post;
+    }
+
+    // count total number of filtered posts
+    $participation_filtered->postscount = (string) count($participation_filtered->posts);
+
+    // $limitnum = OUBLOG_PARTICIPATION_PERPAGE;
+    // $limitfrom = empty($page) ? null : $page * $limitnum;
+    $participation_filtered->posts = array_slice($participation_filtered->posts, $limitfrom, $limitnum);
+
+    return $participation_filtered;
+}
