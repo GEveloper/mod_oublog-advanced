@@ -39,6 +39,12 @@ class mod_oublog_post_form extends moodleform {
         $this->restricttags = false;
         $this->requiretags = false;
 
+        // added custom fields
+        $blogcattype_selected = $this->_customdata['blogcattype_selected'];
+        $blogrecipients_selected = $this->_customdata['blogrecipients_selected'];
+        $blogdateupdater_value = $this->_customdata['blogdateupdater_value'];
+        $capviewcategoryandrecipients = $this->_customdata['capviewcategoryandrecipients'];
+
         if ($this->_customdata['restricttags'] == 1 || $this->_customdata['restricttags'] == 3) {
             $this->restricttags = true;
         }
@@ -66,6 +72,25 @@ class mod_oublog_post_form extends moodleform {
                 array('maxfiles' => EDITOR_UNLIMITED_FILES, 'maxbytes' => $maxbytes));
         $mform->addRule('message', get_string('required'), 'required', null, 'client');
 
+
+        // blogcattype option
+        if ($capviewcategoryandrecipients) {
+            $oublog_categories = get_oublog_categories();
+            $oublog_categories_list = [];
+            foreach ($oublog_categories as $oublog_category) {
+                $oublog_categories_list[$oublog_category->id] = $oublog_category->name;
+            }
+
+            $blogcattype_select = $mform->addElement('select', 'blogcattype', get_string('blogcattype', 'oublog'), $oublog_categories_list);
+            $mform->setType('blogcattype', PARAM_INT);
+            $mform->addHelpButton('blogcattype', 'blogcattype', 'oublog');
+
+            if ($blogcattype_selected) {
+                $blogcattype_select->setSelected($blogcattype_selected);
+            }
+        }
+
+
         if ($this->restricttags) {
             $mform->addElement('static', 'restricttagswarning', '', get_string('restricttagslist', 'oublog', implode(',', $atags)));
         }
@@ -79,6 +104,51 @@ class mod_oublog_post_form extends moodleform {
         if ($this->requiretags) {
             $mform->addRule('tags', get_string('required'), 'required', null, 'client');
         }
+
+
+        // blogrecipients
+        if ($capviewcategoryandrecipients) {
+            $mform->addElement('html', '<div class="oublog-recipients-list">');
+
+            $blogrecipients = get_oublog_recipients();
+            $this->add_checkbox_controller(1, null, null, 0);
+
+            foreach ($blogrecipients as $blogrecipient) {
+                $recipientid = 'ourecipient-' . $blogrecipient->id;
+                $mform->addElement('advcheckbox', $recipientid, $blogrecipient->name, null, array('group' => 1));
+                $mform->setDefault($recipientid, in_array($blogrecipient->id, $blogrecipients_selected) ? 1 : 0);
+            }
+
+            $mform->addElement('html', '</div>');
+        }
+
+
+        // sendemailnotification
+        if (!$edit) {
+            if ($capviewcategoryandrecipients) {
+                $mform->addElement('advcheckbox', 'sendemailnotification', get_string('sendemailnotification', 'oublog'), get_string('sendemailnotification_label', 'oublog'));
+                $mform->setDefault('sendemailnotification', 0);
+                $mform->addHelpButton('sendemailnotification', 'sendemailnotification', 'oublog');
+            }
+        }
+
+
+        // blogdateupdater
+        if ($capviewcategoryandrecipients) {
+            $mform->addElement('date_time_selector', 'blogdateupdater',
+                get_string('blogdateupdater', 'oublog'),
+                [
+                    'startyear' => gmdate('Y', strtotime('-3 year')),
+                    'stopyear' => gmdate('Y')
+                ]
+            );
+            $mform->addHelpButton('blogdateupdater', 'blogdateupdater', 'oublog');
+
+            if ($blogdateupdater_value) {
+                $mform->setDefault('blogdateupdater', $blogdateupdater_value);
+            }
+        }
+
 
         $options = array();
         if ($allowcomments) {
