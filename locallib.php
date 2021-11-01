@@ -6034,25 +6034,6 @@ function get_oublog_recipients() {
     return $DB->get_records_sql($sql);
 }
 
-function get_oublog_posted_timestamp($post_id) {
-    global $DB;
-
-    $sql = "
-        SELECT
-            op.id,
-            op.timeposted
-        FROM {oublog_posts} op
-        WHERE
-            op.id = ?
-        ORDER BY op.id ASC
-        LIMIT 1
-    ";
-
-    return $DB->get_record_sql($sql, [
-        $post_id
-    ]);
-}
-
 function set_oublog_posted_timestamp($post_id, $timestamp) {
     global $DB;
 
