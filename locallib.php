@@ -6017,8 +6017,6 @@ function get_oublog_recipients() {
 
 
 function send_email_to_recipient_list($post_id, $recipient_list) {
-    return true;
-
     global $DB;
 
     if ($postdata = $DB->get_record('oublog_posts', array('id' => $post_id))) {
@@ -6037,33 +6035,6 @@ function send_email_to_recipient_list($post_id, $recipient_list) {
 
         // Send email
         $result = email_to_user($to, $fromuser, $subject, $messagetext, $messagehtml, '', '', true, $fromuser->email);
-
-
-        // foreach ($recipient_list as $recipient_id) {
-
-            // get recipient name from 'oublog_recipients'
-            // split by ': ' // or write manual sql query
-            // search by part[0], part[1]
-            // get users email addresses
-            // if it's not default email address
-            // send email
-
-
-            // $user_profile_fields = profile_user_record($student->id);
-
-            // if (!isset($user_profile_fields->PositionName) || empty($user_profile_fields->PositionName)) {
-            //     $user_position = get_string('notspecified', 'report_boggeneral');
-            // } else {
-            //     $user_position = $user_profile_fields->PositionName;
-            // }
-
-            // if (!isset($student->department) || empty($student->department)) {
-            //     $user_department = get_string('notspecified', 'report_boggeneral');
-            // } else {
-            //     $user_department = $student->department;
-            // }
-
-        // }
     }
 
     return true;
