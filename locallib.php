@@ -5964,25 +5964,6 @@ function get_oublog_tags_searchtag2_refs($searchtag2_id) {
     ]);
 }
 
-function get_oublog_tags_list($post_id) {
-    global $DB;
-
-    $sql = "
-        SELECT
-            ot.id,
-            ot.tag
-        FROM {oublog_taginstances} oti
-        JOIN {oublog_tags} ot ON ot.id = oti.tagid
-        WHERE
-            oti.postid = ?
-        ORDER BY oti.id ASC
-    ";
-
-    return $DB->get_records_sql($sql, [
-        $post_id
-    ]);
-}
-
 function get_oublog_recipient_list($post_id) {
     global $DB;
 
@@ -6033,23 +6014,6 @@ function get_oublog_recipients() {
 
     return $DB->get_records_sql($sql);
 }
-
-function set_oublog_posted_timestamp($post_id, $timestamp) {
-    global $DB;
-
-    $current_timestamp = get_oublog_posted_timestamp($post_id);
-    if ($current_timestamp && $current_timestamp->timeposted !== $timestamp) {
-        $update_posted_timestamp = new stdClass();
-        $update_posted_timestamp->id = $current_timestamp->id;
-        $update_posted_timestamp->timeposted = $timestamp;
-
-        return $DB->update_record('oublog_posts', $update_posted_timestamp);
-    }
-
-    return true;
-}
-
-
 
 
 function send_email_to_recipient_list($post_id, $recipient_list) {
